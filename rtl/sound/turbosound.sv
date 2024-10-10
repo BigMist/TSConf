@@ -31,8 +31,8 @@ module turbosound
 	input   [7:0] DI,	       // Data In
 	output  [7:0] DO,	       // Data Out
 
-	output [11:0] CHANNEL_L, // Output channel L
-	output [11:0] CHANNEL_R, // Output channel R
+	output signed [15:0] CHANNEL_L, // Output channel L
+	output signed [15:0] CHANNEL_R, // Output channel R
 
     input   [7:0]   IOA_in,
     input   [7:0]   IOB_in,
@@ -127,7 +127,7 @@ jt03 ym2203_0
 	.psg_A(psg_ch_a_0),
 	.psg_B(psg_ch_b_0),
 	.psg_C(psg_ch_c_0),
-
+//   .snd (mix_0),
 	.fm_snd(opn_0)
 );
 
@@ -151,7 +151,7 @@ jt03 ym2203_1
 	.psg_A(psg_ch_a_1),
 	.psg_B(psg_ch_b_1),
 	.psg_C(psg_ch_c_1),
-
+//   .snd(mix_1),
 	.fm_snd(opn_1),
 
 	.IOA_in(IOA_in),
@@ -167,6 +167,10 @@ assign DO = ay_select ? DO_1 : DO_0;
 reg  [8:0] psg_a,psg_b,psg_c;
 reg [11:0] psg_l,psg_r,opn_s;
 reg [11:0] ch_l, ch_r;
+
+//reg signed[15:0] mix_0, mix_1;
+//assign CHANNEL_L=mix_0;
+//assign CHANNEL_R=mix_1;
 
 always @(posedge CLK) begin
 	psg_a <= { 1'b0, psg_ch_a_1 } + { 1'b0, psg_ch_a_0 };

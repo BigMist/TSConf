@@ -41,7 +41,7 @@ end
 //sin(x)
 wire [14:0] q1;
 wire [14:0] q2;
-dpram #(.DATAWIDTH(15), .ADDRWIDTH(11), .MEM_INIT_FILE("rtl/sound/compressor.mif")) tbl
+dpram #(.DATAWIDTH(15), .ADDRWIDTH(11), .MEM_INIT_FILE("../rtl/sound/compressor.mif")) tbl
 (
    .clock     (clk),
    .address_a (a1),

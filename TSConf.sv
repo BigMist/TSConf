@@ -18,10 +18,14 @@
 //  with this program; if not, write to the Free Software Foundation, Inc.,
 //  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 //============================================================================
+`default_nettype none
 
-module TSConf_top
+module TSConf
 (
 	input         CLOCK_27,
+`ifdef USE_CLOCK_50
+	input         CLOCK_50,
+`endif
 
 	output        LED,
 	output [VGA_BITS-1:0] VGA_R,
@@ -30,6 +34,20 @@ module TSConf_top
 	output        VGA_HS,
 	output        VGA_VS,
 
+`ifdef USE_HDMI
+	output        HDMI_RST,
+	output  [7:0] HDMI_R,
+	output  [7:0] HDMI_G,
+	output  [7:0] HDMI_B,
+	output        HDMI_HS,
+	output        HDMI_VS,
+	output        HDMI_PCLK,
+	output        HDMI_DE,
+	inout         HDMI_SDA,
+	inout         HDMI_SCL,
+	input         HDMI_INT,
+`endif
+
 	input         SPI_SCK,
 	inout         SPI_DO,
 	input         SPI_DI,
@@ -37,7 +55,14 @@ module TSConf_top
 	input         SPI_SS3,    // OSD
 	input         CONF_DATA0, // SPI_SS for user_io
 
+`ifdef USE_QSPI
+	input         QSCK,
+	input         QCSn,
+	inout   [3:0] QDAT,
+`endif
+`ifndef NO_DIRECT_UPLOAD
 	input         SPI_SS4,
+`endif
 
 	output [12:0] SDRAM_A,
 	inout  [15:0] SDRAM_DQ,
@@ -51,15 +76,84 @@ module TSConf_top
 	output        SDRAM_CLK,
 	output        SDRAM_CKE,
 
+`ifdef DUAL_SDRAM
+	output [12:0] SDRAM2_A,
+	inout  [15:0] SDRAM2_DQ,
+	output        SDRAM2_DQML,
+	output        SDRAM2_DQMH,
+	output        SDRAM2_nWE,
+	output        SDRAM2_nCAS,
+	output        SDRAM2_nRAS,
+	output        SDRAM2_nCS,
+	output  [1:0] SDRAM2_BA,
+	output        SDRAM2_CLK,
+	output        SDRAM2_CKE,
+`endif
+
 	output        AUDIO_L,
 	output        AUDIO_R,
-
+`ifdef I2S_AUDIO
+	output        I2S_BCK,
+	output        I2S_LRCK,
+	output        I2S_DATA,
+`endif
+`ifdef I2S_AUDIO_HDMI
+	output        HDMI_MCLK,
+	output        HDMI_BCK,
+	output        HDMI_LRCK,
+	output        HDMI_SDATA,
+`endif
+`ifdef SPDIF_AUDIO
+	output        SPDIF,
+`endif
+`ifdef USE_AUDIO_IN
+	input         AUDIO_IN,
+`endif
 	input         UART_RX,
 	output        UART_TX
+
 );
 
+`ifdef NO_DIRECT_UPLOAD
+localparam bit DIRECT_UPLOAD = 0;
+wire SPI_SS4 = 1;
+`else
+localparam bit DIRECT_UPLOAD = 1;
+`endif
+
+`ifdef USE_QSPI
+localparam bit QSPI = 1;
+assign QDAT = 4'hZ;
+`else
+localparam bit QSPI = 0;
+`endif
+
+`ifdef VGA_8BIT
+localparam VGA_BITS = 8;
+`else
 localparam VGA_BITS = 6;
+`endif
+
+`ifdef USE_HDMI
+localparam bit HDMI = 1;
+assign HDMI_RST = 1'b1;
+`else
+localparam bit HDMI = 0;
+`endif
+
+`ifdef BIG_OSD
+localparam bit BIG_OSD = 1;
+`define SEP "-;",
+`else
 localparam bit BIG_OSD = 0;
+`define SEP
+`endif
+
+`ifdef USE_AUDIO_IN
+localparam bit USE_AUDIO_IN = 1;
+`else
+localparam bit USE_AUDIO_IN = 0;
+`endif
 
 
 assign LED = ~ioctl_download & ~ioctl_upload & UART_RX;
@@ -72,8 +166,6 @@ localparam CONF_STR = {
 	"O9A,Joystick 2,Kempston,Sinclair 1,Sinclair 2,Cursor;",
 	"O3,Swap mouse buttons,OFF,ON;",
 	"O12,Scandoubler Fx,None,CRT 25%,CRT 50%,CRT 75%;",
-	"O4,Vsync,49 Hz,60 Hz;",
-	"O5,VDAC1,ON,OFF;",
 	"O6,CPU Type,CMOS,NMOS;",
 	"R256,Save NVRAM settings;",
 	"T0,Reset;",
@@ -85,34 +177,38 @@ wire [1:0] st_joystick1 = status[8:7];
 wire [1:0] st_joystick2 = status[10:9];
 wire st_mouseswap = status[3];
 wire [1:0] st_scanlines = status[2:1];
-wire st_60hz = ~status[4];
-wire st_vdac = ~status[5];
 wire st_out0 = ~status[6];
 
 
 ////////////////////   CLOCKS   ///////////////////
 wire clk_sys;
 wire clk_ram;
+wire clk_hdmi;
 pll pll
 (
 	.inclk0(CLOCK_27),
 	.c0(clk_ram),
 	.c1(clk_sys),
+`ifdef USE_HDMI
+	.c2(clk_hdmi),
+`endif
 	.locked()
 );
 
-altclkctrl
-#(
-	.number_of_clocks(1),
-	.clock_type("External Clock Output"),
-	.ena_register_mode("none"),
-	.intended_device_family("Cyclone III")
-)
-altclkctrl
-(
-	.inclk(clk_ram),
-	.outclk(SDRAM_CLK)
-);
+//altclkctrl
+//#(
+//	.number_of_clocks(1),
+//	.clock_type("External Clock Output"),
+//	.ena_register_mode("none"),
+//	.intended_device_family("Cyclone III")
+//)
+//altclkctrl
+//(
+//	.inclk(clk_ram),
+//	.outclk(SDRAM_CLK)
+//);
+
+//assign SDRAM_CLK=clk_ram;
 
 reg ce_28m;
 always @(negedge clk_sys) begin
@@ -176,6 +272,18 @@ wire [28:0] ps2_mouse = { mouse_strobe_level, mouse_z, mouse_y[7:0], mouse_x[7:0
 reg         mouse_strobe_level;
 always @(posedge clk_sys) if (mouse_strobe) mouse_strobe_level <= ~mouse_strobe_level;
 
+
+`ifdef USE_HDMI
+wire        i2c_start;
+wire        i2c_read;
+wire  [6:0] i2c_addr;
+wire  [7:0] i2c_subaddr;
+wire  [7:0] i2c_dout;
+wire  [7:0] i2c_din;
+wire        i2c_ack;
+wire        i2c_end;
+`endif
+
 user_io #(.STRLEN($size(CONF_STR)>>3), .SD_IMAGES(2), .FEATURES(32'h0 | (BIG_OSD << 13))) user_io
 (
 	.clk_sys(clk_sys),
@@ -186,6 +294,17 @@ user_io #(.STRLEN($size(CONF_STR)>>3), .SD_IMAGES(2), .FEATURES(32'h0 | (BIG_OSD
 	.SPI_SS_IO(CONF_DATA0),
 	.SPI_MOSI(SPI_DI),
 	.SPI_MISO(SPI_DO),
+
+`ifdef USE_HDMI
+	.i2c_start      (i2c_start      ),
+	.i2c_read       (i2c_read       ),
+	.i2c_addr       (i2c_addr       ),
+	.i2c_subaddr    (i2c_subaddr    ),
+	.i2c_dout       (i2c_dout       ),
+	.i2c_din        (i2c_din        ),
+	.i2c_ack        (i2c_ack        ),
+	.i2c_end        (i2c_end        ),
+`endif
 
 	.img_mounted(img_mounted),
 	.img_size(img_size),
@@ -317,13 +436,15 @@ tsconf tsconf
 	.SDRAM_nRAS(SDRAM_nRAS),
 	.SDRAM_CKE(SDRAM_CKE),
 	.SDRAM_nCS(SDRAM_nCS),
-	// .SDRAM_CLK(SDRAM_CLK),
+   .SDRAM_CLK(SDRAM_CLK),
 
 	.VRED(R),
 	.VGRN(G),
 	.VBLU(B),
 	.VHSYNC(HS),
 	.VVSYNC(VS),
+	.VVBLANK(VBlank),
+	.VHBLANK(HBlank),
 
 	.SD_SO(sdmiso),
 	.SD_SI(sdmosi),
@@ -343,9 +464,7 @@ tsconf tsconf
 	.UART_TX(uart_out),
 
 	.CFG_OUT0(st_out0),
-	.CFG_60HZ(st_60hz),
 	.CFG_SCANDOUBLER(1'b0),
-	.CFG_VDAC(st_vdac),
 	.CFG_JOYSTICK1(st_joystick1),
 	.CFG_JOYSTICK2(st_joystick2),
 
@@ -390,7 +509,7 @@ assign UART_TX = uart_tx;
 
 
 //////////////////   VIDEO   ///////////////////
-reg VSync, HSync;
+reg VSync, HSync,HBlank,VBlank;
 always @(posedge clk_sys) begin
 	HSync <= HS;
 	if(~HSync & HS) VSync <= VS;
@@ -437,6 +556,103 @@ mist_video #(.COLOR_DEPTH(8), .SD_HCNT_WIDTH(11), .OUT_COLOR_DEPTH(VGA_BITS), .B
 	.VGA_HS      ( VGA_HS     )
 );
 
+`ifdef USE_HDMI
+i2c_master #(84_000_000) i2c_master (
+	.CLK         (clk_sys),
+	.I2C_START   (i2c_start),
+	.I2C_READ    (i2c_read),
+	.I2C_ADDR    (i2c_addr),
+	.I2C_SUBADDR (i2c_subaddr),
+	.I2C_WDATA   (i2c_dout),
+	.I2C_RDATA   (i2c_din),
+	.I2C_END     (i2c_end),
+	.I2C_ACK     (i2c_ack),
+
+	//I2C bus
+	.I2C_SCL     (HDMI_SCL),
+	.I2C_SDA     (HDMI_SDA)
+);
+
+mist_video #(.COLOR_DEPTH(8), .SD_HCNT_WIDTH(11), .OUT_COLOR_DEPTH(8), .USE_BLANKS(1), .BIG_OSD(BIG_OSD), .VIDEO_CLEANER(1)) hdmi_video (
+	.clk_sys     ( clk_hdmi   ),
+
+	// OSD SPI interface
+	.SPI_SCK     ( SPI_SCK    ),
+	.SPI_SS3     ( SPI_SS3    ),
+	.SPI_DI      ( SPI_DI     ),
+
+	// scanlines (00-none 01-25% 10-50% 11-75%)
+	.scanlines   ( st_scanlines  ),
+
+	// non-scandoubled pixel clock divider 0 - clk_sys/4, 1 - clk_sys/2
+	.ce_divider  ( 3'd1       ),
+
+	// 0 = HVSync 31KHz, 1 = CSync 15KHz
+	.scandoubler_disable ( 1'b0 ),
+	// disable csync without scandoubler
+	.no_csync    ( 1'b1       ),
+	// YPbPr always uses composite sync
+	.ypbpr       ( 1'b0       ),
+	// Rotate OSD [0] - rotate [1] - left or right
+	.rotate      ( 2'b00      ),
+	// composite-like blending
+	.blend       ( 1'b0       ),
+
+	// video in
+	.R           ( R ),
+	.G           ( G ),
+	.B           ( B ),
+
+	.HBlank      ( HBlank      ),
+	.VBlank      ( VBlank      ),
+	.HSync       ( HSync      ),
+	.VSync       ( VSync      ),
+
+	// MiST video output signals
+	.VGA_R       ( HDMI_R      ),
+	.VGA_G       ( HDMI_G      ),
+	.VGA_B       ( HDMI_B      ),
+	.VGA_VS      ( HDMI_VS     ),
+	.VGA_HS      ( HDMI_HS     ),
+	.VGA_DE      ( HDMI_DE     )
+);
+assign HDMI_PCLK = clk_hdmi;
+
+`endif
+
+`ifdef I2S_AUDIO
+i2s i2s (
+	.reset(1'b0),
+	.clk(clk_sys),
+	.clk_rate(32'd84_000_000),
+
+	.sclk(I2S_BCK),
+	.lrclk(I2S_LRCK),
+	.sdata(I2S_DATA),
+
+	.left_chan(SOUND_L),
+	.right_chan(SOUND_R)
+);
+`ifdef I2S_AUDIO_HDMI
+assign HDMI_MCLK = 0;
+always @(posedge clk_sys) begin
+	HDMI_BCK <= I2S_BCK;
+	HDMI_LRCK <= I2S_LRCK;
+	HDMI_SDATA <= I2S_DATA;
+end
+`endif
+`endif
+
+`ifdef SPDIF_AUDIO
+spdif spdif
+(
+	.clk_i(clk_sys),
+	.rst_i(init_reset),
+	.clk_rate_i(32'd84_000_000),
+	.spdif_o(SPDIF),
+	.sample_i({SOUND_R, SOUND_L})
+);
+`endif
 
 //////////////////   SOUND   ///////////////////
 wire dac_l, dac_r;

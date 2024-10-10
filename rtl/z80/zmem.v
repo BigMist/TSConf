@@ -325,7 +325,7 @@ module zmem
   // That is, there is a chance that SDRAM controller will start read cycle with an incorrect address
   wire [7:0] trdos_3dxx_do;
   wire trdos_3dxx_hit = dos && csrom && rompg==5'h1 && za[13:8]==6'h3D;
-  dpram #(.DATAWIDTH(8), .ADDRWIDTH(8), .MEM_INIT_FILE("rtl/z80/trdos504T_3DXX.mif")) trdos_3dxx
+  dpram #(.DATAWIDTH(8), .ADDRWIDTH(8), .MEM_INIT_FILE("../rtl/z80/trdos504T_3DXX.mif")) trdos_3dxx
   (
     .clock (clk),
     .address_a (za[7:0]),

@@ -29,6 +29,8 @@ module tsconf
   output  [7:0] VBLU,
   output        VHSYNC,
   output        VVSYNC,
+  output        VHBLANK,
+  output        VVBLANK,
 
   // SD/MMC Memory Card
   input         SD_SO,
@@ -282,9 +284,9 @@ module tsconf
 
   wire [7:0] fddvirt;
 
-  wire [4:0] vred_raw;
-  wire [4:0] vgrn_raw;
-  wire [4:0] vblu_raw;
+//  wire [4:0] vred_raw;
+//  wire [4:0] vgrn_raw;
+//  wire [4:0] vblu_raw;
   wire vdac_mode;
 
   wire [15:0] z80_ide_out;
@@ -341,15 +343,15 @@ module tsconf
   wire [15:0] dram_do;
   wire [15:0] dram_docpu;
 
-  wire [1:0]  vred;
-  wire [1:0]  vgrn;
-  wire [1:0]  vblu;
-  wire [7:0]  vred_vdac;
-  wire [7:0]  vgrn_vdac;
-  wire [7:0]  vblu_vdac;
-  assign VRED = CFG_VDAC? vred_vdac : {vred,vred,vred,vred};
-  assign VGRN = CFG_VDAC? vgrn_vdac : {vgrn,vgrn,vgrn,vgrn};
-  assign VBLU = CFG_VDAC? vblu_vdac : {vblu,vblu,vblu,vblu};
+  //wire [1:0]  vred;
+  //wire [1:0]  vgrn;
+  //wire [1:0]  vblu;
+  //wire [7:0]  vred_vdac;
+  //wire [7:0]  vgrn_vdac;
+  //wire [7:0]  vblu_vdac;
+  //assign VRED = CFG_VDAC? vred_vdac : {vred,vred,vred,vred};
+  //assign VGRN = CFG_VDAC? vgrn_vdac : {vgrn,vgrn,vgrn,vgrn};
+  //assign VBLU = CFG_VDAC? vblu_vdac : {vblu,vblu,vblu,vblu};
 
   wire fclk = clk & ce;
 
@@ -536,21 +538,19 @@ module tsconf
     .c0(c0),
     .c1(c1),
     .c3(c3),
-    .vred(vred),
-    .vgrn(vgrn),
-    .vblu(vblu),
-    .vred_raw(vred_raw),
-    .vgrn_raw(vgrn_raw),
-    .vblu_raw(vblu_raw),
+    .vred(VRED),
+    .vgrn(VGRN),
+    .vblu(VBLU),
     .vdac_mode(vdac_mode),
 `ifdef IDE_VDAC2
     .vdac2_msel(vdac2_msel),
 `endif
     .hsync(VHSYNC),
     .vsync(VVSYNC),
+	 .vblank(VVBLANK),
+	 .hblank(VHBLANK),
     .csync(),
-    .cfg_60hz(cfg_60hz),
-    .vga_on(cfg_vga_on),
+
     .border_wr(border_wr),
     .zborder_wr(zborder_wr),
     .zvpage_wr(zvpage_wr),
@@ -603,16 +603,6 @@ module tsconf
     .line_start_s(int_start_lin)
   );
 
-  vdac vdac
-  (
-    .mode(vdac_mode),
-    .o_r(vred_raw),
-    .o_g(vgrn_raw),
-    .o_b(vblu_raw),
-    .v_r(vred_vdac),
-    .v_g(vgrn_vdac),
-    .v_b(vblu_vdac)
-  );
 
   zmaps zmaps
   (
@@ -1039,7 +1029,7 @@ module tsconf
   wire ts_enable = ~iorq_n & a[0] & a[15] & ~a[1];
   wire ts_we     = ts_enable & ~wr_n;
 
-  wire [11:0] ts_l, ts_r;
+  wire [15:0] ts_l, ts_r;
   wire  [7:0] ts_do;
   wire  [7:0] ioa_out;
   assign MIDI_OUT = ioa_out[2];
@@ -1133,7 +1123,8 @@ module tsconf
   reg [7:0] port_xxfe_reg;
   always @(posedge fclk) if (beeper_wr) port_xxfe_reg <= d;
   assign TAPE_OUT = port_xxfe_reg[3];
-
+  
+  
   // Audio output
   wire [11:0] audio_l = ts_l + {gs_l[14], gs_l[14:4]} + {2'b00, covox_a, 2'b00} + {2'b00, covox_b, 2'b00} + {1'b0, saa_out_l, 3'b000} + {3'b000, port_xxfe_reg[4], 8'b00000000};
   wire [11:0] audio_r = ts_r + {gs_r[14], gs_r[14:4]} + {2'b00, covox_c, 2'b00} + {2'b00, covox_d, 2'b00} + {1'b0, saa_out_r, 3'b000} + {3'b000, port_xxfe_reg[4], 8'b00000000};

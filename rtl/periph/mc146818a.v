@@ -225,7 +225,7 @@ always @(posedge CLK) begin
 end
 
 // 50 Bytes of General Purpose RAM	
-dpram #(.DATAWIDTH(8), .ADDRWIDTH(8), .MEM_INIT_FILE("rtl/periph/CMOS.mif")) CMOS
+dpram #(.DATAWIDTH(8), .ADDRWIDTH(8), .MEM_INIT_FILE("../rtl/periph/CMOS.mif")) CMOS
 (
 	.clock		(CLK),
 	.address_a	(A),
